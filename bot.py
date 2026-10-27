@@ -2,14 +2,16 @@
 import asyncio
 import json
 import logging
+import random
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import aiohttp
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
-    BotCommand, BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup,
+    BotCommand, BufferedInputFile, CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup,
     KeyboardButton, LabeledPrice, Message, PreCheckoutQuery, ReplyKeyboardMarkup,
 )
 
@@ -24,6 +26,7 @@ db = DB(cfg.db_path)
 llm = LLM(cfg)
 router = Router()
 BOT_USERNAME = {"v": ""}
+VIDEO_DIR = Path(__file__).resolve().parent / "assets" / "video"
 
 BTN_DAY, BTN_ASK, BTN_ARC, BTN_MORE = "🃏 Карта дня", "🔮 Спросить карты", "✨ Мой аркан", "☰ Ещё"
 MAIN_KB = ReplyKeyboardMarkup(
@@ -75,15 +78,27 @@ async def send_photo_text(bot: Bot, chat_id: int, data: bytes, text: str, name="
         await bot.send_message(chat_id, part, **kw)
 
 
-async def intro_video(bot: Bot, chat_id: int):
-    """Видео-кружок героини. Нужен file_id своего ролика в VIDEO_NOTE_FILE_ID."""
-    if cfg.video_note_id:
-        try:
-            await bot.send_video_note(chat_id, cfg.video_note_id)
-        except Exception:
-            log.warning("video note failed")
-    else:
+async def intro_video(bot: Bot, chat_id: int, name: str = "greeting"):
+    """Видео-кружок героини из assets/video/<name>*.mp4 (несколько файлов - случайный).
+    Первый раз файл загружается, file_id кэшируется в БД. Нет файла - просто «печатает»."""
+    files = sorted(VIDEO_DIR.glob(f"{name}*.mp4"))
+    if not files:
         await bot.send_chat_action(chat_id, "typing")
+        return
+    path = random.choice(files)
+    key = f"vn:{path.name}:{path.stat().st_size}"
+    try:
+        cached = db.kv_get(key)
+        if cached:
+            try:
+                await bot.send_video_note(chat_id, cached)
+                return
+            except Exception:
+                log.warning("cached video note %s is stale, re-uploading", path.name)
+        msg = await bot.send_video_note(chat_id, FSInputFile(path), length=640)
+        db.kv_set(key, msg.video_note.file_id)
+    except Exception:
+        log.warning("video note %s failed", path.name, exc_info=True)
 
 
 def today() -> str:
@@ -118,7 +133,8 @@ async def on_start(m: Message, command: CommandObject, bot: Bot):
             await bot.send_message(donor, texts.GIFT_REDEEMED)
             await m.answer(texts.ASK_CARDS, reply_markup=topics_kb(extra=False))
             return
-    await intro_video(bot, m.chat.id)
+    if not row["name"]:
+        await intro_video(bot, m.chat.id)
     if row["name"]:
         await m.answer(texts.ASK_TOPIC, reply_markup=MAIN_KB)
         await m.answer(texts.ASK_TOPIC, reply_markup=topics_kb())
@@ -203,7 +219,7 @@ async def offer_spread(bot: Bot, chat_id: int, uid: int, question: str, n_cards:
     """Раскладывает карты, показывает коллаж, предлагает оплату (или подаренный расклад)."""
     cards = deck.draw(n_cards)
     sid = db.new_spread(uid, "spread", question, [deck.card_to_str(c) for c in cards])
-    await intro_video(bot, chat_id)
+    await intro_video(bot, chat_id, "spread")
     await bot.send_photo(chat_id, BufferedInputFile(images.collage(cards, cfg.cards_dir), "spread.jpg"))
     price = price_for(n_cards)
     await bot.send_message(chat_id, texts.TEASER.format(
@@ -261,7 +277,7 @@ async def do_yesno(m: Message, bot: Bot, question: str):
     uid = m.from_user.id
     card = deck.draw(1)[0]
     answer = deck.yes_no(card)
-    await intro_video(bot, m.chat.id)
+    await intro_video(bot, m.chat.id, "yesno")
     try:
         body = await llm.yesno(question, card, answer)
     except Exception:
@@ -399,7 +415,7 @@ async def on_fu_buy(c: CallbackQuery, bot: Bot):
 async def send_arcana(bot: Bot, chat_id: int, uid: int, name: str, birth):
     n = numerology.arcana_of(birth)
     card = deck.major(n)
-    await intro_video(bot, chat_id)
+    await intro_video(bot, chat_id, "arcana")
     try:
         data = await llm.arcana(name, n)
     except Exception:

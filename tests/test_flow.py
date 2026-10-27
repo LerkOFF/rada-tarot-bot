@@ -11,8 +11,8 @@ os.environ["LLM_PROVIDER"] = "stub"
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import GetMe, SendInvoice, SendMessage, SendPhoto
-from aiogram.types import Chat, Message, Update, User, CallbackQuery, PreCheckoutQuery, SuccessfulPayment
+from aiogram.methods import GetMe, SendInvoice, SendMessage, SendPhoto, SendVideoNote
+from aiogram.types import Chat, Message, VideoNote, Update, User, CallbackQuery, PreCheckoutQuery, SuccessfulPayment
 
 import bot as botmod
 
@@ -32,6 +32,9 @@ class FakeSession(BaseSession):
         self.calls.append(method)
         if isinstance(method, GetMe):
             return User(id=1, is_bot=True, first_name="Z", username="zarya_taro_bot")
+        if isinstance(method, SendVideoNote):
+            return Message(message_id=len(self.calls), date=datetime.now(), chat=Chat(id=method.chat_id, type="private"),
+                           video_note=VideoNote(file_id="FID123", file_unique_id="u", length=640, duration=10))
         if isinstance(method, (SendMessage, SendPhoto, SendInvoice)):
             return Message(message_id=len(self.calls), date=datetime.now(), chat=Chat(id=method.chat_id, type="private"))
         return True
@@ -41,6 +44,7 @@ def make():
     sess = FakeSession()
     bot = Bot("1:test", session=sess)
     botmod.BOT_USERNAME["v"] = "zarya_taro_bot"
+    botmod.router._parent_router = None   # роутер один на модуль, в тестах подключаем заново
     dp = Dispatcher()
     dp.include_router(botmod.router)
     return bot, dp, sess
@@ -121,4 +125,24 @@ def test_full_flow():
         await send(dp, bot, "/forget")
         assert botmod.db.user(UID)["name"] is None
 
+    asyncio.run(run())
+
+
+def test_greeting_video_note_uploaded_once_then_cached():
+    async def run():
+        bot, dp, sess = make()
+        botmod.db.con.execute("DELETE FROM kv")
+        botmod.db.con.commit()
+        global UID
+        old = UID
+        try:
+            for uid in (901, 902):
+                UID = uid
+                await send(dp, bot, "/start")
+        finally:
+            UID = old
+        notes = [c for c in sess.calls if isinstance(c, SendVideoNote)]
+        assert len(notes) == 2
+        assert not isinstance(notes[0].video_note, str)   # первый раз загрузка файла
+        assert notes[1].video_note == "FID123"            # дальше file_id из кэша
     asyncio.run(run())

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS spreads (
 CREATE TABLE IF NOT EXISTS gifts (
   code TEXT PRIMARY KEY, from_user INTEGER, redeemed_by INTEGER, created REAL
 );
+CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 """
 
 
@@ -31,6 +32,16 @@ class DB:
         self.con = sqlite3.connect(path)
         self.con.row_factory = sqlite3.Row
         self.con.executescript(SCHEMA)
+
+    # мелкий кэш (file_id видео-кружков и т.п.)
+    def kv_get(self, key: str):
+        row = self.con.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def kv_set(self, key: str, value: str):
+        self.con.execute("INSERT INTO kv(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                         (key, value))
+        self.con.commit()
 
     # люди
     def user(self, uid: int):
