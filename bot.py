@@ -193,6 +193,8 @@ async def on_card_cmd(m: Message, bot: Bot):
 async def send_card_of_day(bot: Bot, chat_id: int, uid: int, with_off: bool = False):
     row, _ = db.ensure_user(uid)
     card = deck.card_of_day(uid, today())
+    if not with_off:
+        await intro_video(bot, chat_id, "card")
     try:
         body = await llm.daily(uname(row), card)
     except Exception:
@@ -364,6 +366,7 @@ async def on_use_credit(c: CallbackQuery, bot: Bot):
 async def deliver_spread(bot: Bot, chat_id: int, uid: int, sid: int):
     row = db.spread(sid)
     cards = [deck.card_from_str(s) for s in json.loads(row["cards"])]
+    await intro_video(bot, chat_id, "paid")
     text = await llm.spread(row["question"], cards, uname(db.user(uid)))
     db.update_spread(sid, text=text)
     await say(None, bot, chat_id, text)
@@ -463,6 +466,7 @@ async def start_year(bot: Bot, chat_id: int, uid: int, row):
 
 
 async def send_year(bot: Bot, chat_id: int, uid: int, row, birth):
+    await intro_video(bot, chat_id, "year")
     year = datetime.now().year
     n = numerology.year_card(birth, year)
     card = deck.major(n)
@@ -480,6 +484,7 @@ async def send_compat(bot: Bot, chat_id: int, row, partner: str, b_birth):
     if not row["birth"]:
         await bot.send_message(chat_id, texts.NO_BIRTH_FIRST)
         return
+    await intro_video(bot, chat_id, "compat")
     a_birth = datetime.strptime(row["birth"], "%Y-%m-%d").date()
     n = numerology.pair_arcana(a_birth, b_birth)
     card = deck.major(n)
@@ -517,6 +522,7 @@ async def deliver_full(bot: Bot, chat_id: int, uid: int, sid: int):
     n = numerology.arcana_of(birth)
     card = deck.major(n)
     year = datetime.now().year
+    await intro_video(bot, chat_id, "full")
     text = await llm.full(uname(row), birth.strftime("%d.%m.%Y"), n, numerology.year_card(birth, year), year)
     db.update_spread(sid, text=text)
     url = await publish_telegraph(f"Полный разбор судьбы: {card.name}", text)
@@ -681,6 +687,7 @@ async def scheduler(bot: Bot):
             for row, days in db.due_followups(time.time()):
                 db.update_spread(row["id"], **{f"asked{days}": 1})
                 try:
+                    await intro_video(bot, row["user_id"], "followup")
                     await bot.send_message(row["user_id"], texts.FEEDBACK_ASK.format(q=row["question"]),
                                            reply_markup=ikb([[btn("Да", f"fb:{row['id']}:y"),
                                                               btn("Частично", f"fb:{row['id']}:p"),
