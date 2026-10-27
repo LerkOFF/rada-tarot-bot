@@ -98,7 +98,7 @@ def test_full_flow():
         pay = SuccessfulPayment(currency="XTR", total_amount=50, invoice_payload=payload,
                                 telegram_payment_charge_id="c1", provider_payment_charge_id="p1")
         await dp.feed_update(bot, Update(update_id=9002, message=msg(None, successful_payment=pay)))
-        assert "Карты шепчут" in texts_of(sess)                    # заглушка-толкование выдано
+        assert "Прошлое:" in texts_of(sess) and "Будущее:" in texts_of(sess)   # расклад собран из библиотеки
         assert botmod.db.user(UID)["paid_total"] == 50
         # уточнение
         await send(dp, bot, "А что с работой?")

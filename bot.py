@@ -401,7 +401,7 @@ async def send_arcana(bot: Bot, chat_id: int, uid: int, name: str, birth):
     card = deck.major(n)
     await intro_video(bot, chat_id)
     try:
-        data = await llm.arcana(name, f"{card.name} (аркан {deck.ROMAN[n]})")
+        data = await llm.arcana(name, n)
     except Exception:
         await bot.send_message(chat_id, texts.LLM_FAIL)
         return
@@ -452,7 +452,7 @@ async def send_year(bot: Bot, chat_id: int, uid: int, row, birth):
     card = deck.major(n)
     name = uname(row)
     try:
-        body = await llm.year(name, card.name, year)
+        body = await llm.year(name, n, year)
     except Exception:
         await bot.send_message(chat_id, texts.LLM_FAIL)
         return
@@ -469,7 +469,7 @@ async def send_compat(bot: Bot, chat_id: int, row, partner: str, b_birth):
     card = deck.major(n)
     a_name = uname(row) or "Ты"
     try:
-        body = await llm.compat(a_name, partner, card.name)
+        body = await llm.compat(a_name, partner, n)
     except Exception:
         await bot.send_message(chat_id, texts.LLM_FAIL)
         return
@@ -498,8 +498,10 @@ async def invoice_full(bot: Bot, chat_id: int, uid: int, row):
 async def deliver_full(bot: Bot, chat_id: int, uid: int, sid: int):
     row = db.user(uid)
     birth = datetime.strptime(row["birth"], "%Y-%m-%d").date()
-    card = deck.major(numerology.arcana_of(birth))
-    text = await llm.full(uname(row), birth.strftime("%d.%m.%Y"), card.name)
+    n = numerology.arcana_of(birth)
+    card = deck.major(n)
+    year = datetime.now().year
+    text = await llm.full(uname(row), birth.strftime("%d.%m.%Y"), n, numerology.year_card(birth, year), year)
     db.update_spread(sid, text=text)
     url = await publish_telegraph(f"Полный разбор судьбы: {card.name}", text)
     if url:

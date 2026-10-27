@@ -5,7 +5,9 @@ import re
 
 import aiohttp
 
+from . import library
 from .config import Config
+from .deck import MAJORS, ROMAN
 
 log = logging.getLogger("rada.llm")
 
@@ -75,58 +77,95 @@ class LLM:
                 "Прислушайся к тому, что на сердце, и сделай один маленький шаг. "
                 "(Это заглушка: задай LLM_PROVIDER и ключ в .env, чтобы получать настоящие толкования.)")
 
-    # прикладные запросы
+    @property
+    def live(self) -> bool:
+        p = self.cfg.llm_provider
+        return (p == "gemini" and bool(self.cfg.gemini_key)) or (p == "anthropic" and bool(self.cfg.anthropic_key))
+
+    # прикладные запросы: сначала готовая библиотека, нейросеть только там, где библиотеки нет
 
     async def daily(self, name: str, card) -> str:
+        text = library.daily(card)
+        if text:
+            return text
         who = f"Человека зовут {name}. " if name else ""
         return await self.ask(
             f"{who}Карта дня: {card.title}. Дай толкование на сегодня одним абзацем, "
             "в конце один простой совет-действие.", 90)
 
     async def yesno(self, question: str, card, answer: str) -> str:
+        text = library.yesno(card)
+        if text:
+            return text
         return await self.ask(
             f"Вопрос (данные): «{question}». Выпала карта {card.title}, ответ карт: {answer}. "
             "Объясни коротко, почему так, 2-3 предложения, без категоричности.", 60)
 
     async def spread(self, question: str, cards: list, name: str) -> str:
-        names = "; ".join(f"{i}. {c.title}" for i, c in enumerate(cards, 1))
-        who = f"Человека зовут {name}. " if name else ""
-        return await self.ask(
-            f"{who}Вопрос (данные): «{question}». Расклад: {names}. "
-            "Растолкуй каждую карту в её позиции (прошлое, настоящее, будущее для трёх; "
-            "для пяти: суть, помеха, опора, ближайшее, итог), затем итог и совет.", 260 if len(cards) == 3 else 420)
+        if self.live:
+            names = "; ".join(f"{i}. {c.title}" for i, c in enumerate(cards, 1))
+            who = f"Человека зовут {name}. " if name else ""
+            try:
+                return await self.ask(
+                    f"{who}Вопрос (данные): «{question}». Расклад: {names}. "
+                    "Растолкуй каждую карту в её позиции (прошлое, настоящее, будущее для трёх; "
+                    "для пяти: суть, помеха, опора, ближайшее, итог), затем итог и совет.",
+                    260 if len(cards) == 3 else 420)
+            except Exception:
+                log.warning("live spread failed, falling back to library")
+        return library.spread_text(question, cards) or self._stub(question)
 
     async def followup(self, question: str, cards: list, previous: str, user_text: str) -> str:
-        names = "; ".join(c.title for c in cards)
-        return await self.ask(
-            f"Исходный вопрос: «{question}». Расклад: {names}. Прежнее толкование: {previous}\n"
-            f"Уточнение человека (данные): «{user_text}». Ответь по тем же картам, не вытягивай новых.", 120)
+        if self.live:
+            names = "; ".join(c.title for c in cards)
+            try:
+                return await self.ask(
+                    f"Исходный вопрос: «{question}». Расклад: {names}. Прежнее толкование: {previous}\n"
+                    f"Уточнение человека (данные): «{user_text}». Ответь по тем же картам, не вытягивай новых.", 120)
+            except Exception:
+                log.warning("live followup failed, falling back to library")
+        return library.followup_text(cards, user_text) or self._stub(user_text)
 
-    async def arcana(self, name: str, title: str) -> dict:
+    async def arcana(self, name: str, n: int) -> dict:
+        entry = library.arcana(n)
+        if entry:
+            return dict(entry)
+        title = f"{MAJORS[n]} (аркан {ROMAN[n]})"
         raw = await self.ask(
             f"Имя: {name or 'друг'}. Аркан судьбы: {title}. Верни ТОЛЬКО JSON с ключами: "
             "epigraph (1 предложение для карточки, обращение на «ты»), power (сила, до 10 слов), "
             "blind (слепая зона, до 10 слов), decision (как решает, до 10 слов), "
-            "quote (афоризм в одну строку), text (абзац 60-80 слов, начинается с обращения по имени).", 220)
+            "quote (афоризм в одну строку), text (абзац 60-80 слов, без имени).", 220)
         return parse_json_block(raw) or {
             "epigraph": raw.split(".")[0][:120], "power": "", "blind": "", "decision": "",
             "quote": "", "text": raw,
         }
 
-    async def year(self, name: str, title: str, year: int) -> str:
+    async def year(self, name: str, n: int, year: int) -> str:
+        text = library.year(n)
+        if text:
+            return text
         return await self.ask(
-            f"Имя: {name or 'друг'}. Карта года {year}: {title}. Опиши год одним абзацем.", 110)
+            f"Имя: {name or 'друг'}. Карта года {year}: {MAJORS[n]}. Опиши год одним абзацем.", 110)
 
-    async def compat(self, a: str, b: str, title: str) -> str:
+    async def compat(self, a: str, b: str, n: int) -> str:
+        text = library.pair(n)
+        if text:
+            return text
         return await self.ask(
-            f"Пара: {a} и {b}. Аркан пары: {title}. Один абзац: что их держит вместе, "
+            f"Пара: {a} и {b}. Аркан пары: {MAJORS[n]}. Один абзац: что их держит вместе, "
             "где трение, совет от гадалки.", 100)
 
-    async def full(self, name: str, birth: str, title: str) -> str:
-        return await self.ask(
-            f"Имя: {name or 'друг'}, дата рождения {birth}, аркан судьбы: {title}. "
-            "Напиши полный разбор судьбы: характер, любовь, деньги и дело, испытания, "
-            "ближайший год, напутствие. С подзаголовками отдельными строками.", 700)
+    async def full(self, name: str, birth: str, n: int, year_n: int, year: int) -> str:
+        if self.live:
+            try:
+                return await self.ask(
+                    f"Имя: {name or 'друг'}, дата рождения {birth}, аркан судьбы: {MAJORS[n]}. "
+                    "Напиши полный разбор судьбы: характер, любовь, деньги и дело, испытания, "
+                    "ближайший год, напутствие. С подзаголовками отдельными строками.", 700)
+            except Exception:
+                log.warning("live full failed, falling back to library")
+        return library.full_text(name, n, year_n, year) or self._stub(birth)
 
 
 def parse_json_block(raw: str):
