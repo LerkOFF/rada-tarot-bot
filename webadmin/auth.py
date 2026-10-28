@@ -38,6 +38,19 @@ def set_user(db, login: str, password: str):
     db.con.commit()
 
 
+def rename_user(db, old: str, new: str):
+    """Новое имя с прежним паролем. Журнал правок тоже переписываем на новое имя."""
+    if not db.con.execute("SELECT 1 FROM admin_users WHERE login=?", (old,)).fetchone():
+        raise SystemExit(f"нет логина {old}")
+    if db.con.execute("SELECT 1 FROM admin_users WHERE login=? COLLATE NOCASE AND login!=?", (new, old)).fetchone():
+        raise SystemExit(f"логин {new} уже занят")
+    db.con.execute("UPDATE admin_users SET login=? WHERE login=?", (new, old))
+    db.con.execute("UPDATE audit SET login=? WHERE login=?", (new, old))
+    db.con.execute("UPDATE content SET updated_by=? WHERE updated_by=?", (new, old))
+    db.con.execute("DELETE FROM admin_sessions WHERE login=?", (old,))
+    db.con.commit()
+
+
 def delete_user(db, login: str):
     db.con.execute("DELETE FROM admin_users WHERE login=?", (login,))
     db.con.execute("DELETE FROM admin_sessions WHERE login=?", (login,))
@@ -57,11 +70,13 @@ def too_many_fails(db, ip: str) -> bool:
 
 def login(db, login_name: str, password: str, ip: str):
     """Токен новой сессии или None."""
-    row = db.con.execute("SELECT * FROM admin_users WHERE login=?", (login_name,)).fetchone()
+    # регистр при входе не важен, но логин хранится и показывается как задан («V»)
+    row = db.con.execute("SELECT * FROM admin_users WHERE login=? COLLATE NOCASE", (login_name,)).fetchone()
     if not row or not check_password(password, row["pw_hash"]):
         db.con.execute("INSERT INTO login_fails(ip, ts) VALUES(?,?)", (ip, time.time()))
         db.con.commit()
         return None
+    login_name = row["login"]
     token = secrets.token_urlsafe(32)
     now = time.time()
     db.con.execute("INSERT INTO admin_sessions(token, login, csrf, created, expires) VALUES(?,?,?,?,?)",

@@ -2,6 +2,7 @@
 
   .venv/bin/python admin.py serve [--host 127.0.0.1] [--port 8770]
   .venv/bin/python admin.py adduser <логин>     создать или сменить пароль, пароль печатается один раз
+  .venv/bin/python admin.py rename <старый> <новый>  пароль остаётся прежним
   .venv/bin/python admin.py deluser <логин>
   .venv/bin/python admin.py users
 """
@@ -26,6 +27,9 @@ def main():
     a = sub.add_parser("adduser")
     a.add_argument("login")
     a.add_argument("--password", help="если не задан, сгенерируется")
+    rn = sub.add_parser("rename")
+    rn.add_argument("old")
+    rn.add_argument("new")
     d = sub.add_parser("deluser")
     d.add_argument("login")
     sub.add_parser("users")
@@ -38,10 +42,13 @@ def main():
         web.run_app(make_app(cfg, db), host=args.host, port=args.port, access_log=None)
     elif args.cmd == "adduser":
         password = args.password or auth.new_password()
-        auth.set_user(db, args.login.strip().lower(), password)
-        print(f"{args.login.strip().lower()}: {password}")
+        auth.set_user(db, args.login.strip(), password)
+        print(f"{args.login.strip()}: {password}")
+    elif args.cmd == "rename":
+        auth.rename_user(db, args.old.strip(), args.new.strip())
+        print(f"{args.old.strip()} -> {args.new.strip()}")
     elif args.cmd == "deluser":
-        auth.delete_user(db, args.login.strip().lower())
+        auth.delete_user(db, args.login.strip())
         print("удалён")
     elif args.cmd == "users":
         print("\n".join(auth.users(db)) or "пусто")

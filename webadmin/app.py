@@ -256,7 +256,7 @@ async def login_post(request):
     ip = client_ip(request)
     if auth.too_many_fails(db, ip):
         return render(request, "login.html", error="Слишком много попыток. Подожди 15 минут.")
-    token = auth.login(db, (data.get("login") or "").strip().lower(), data.get("password") or "", ip)
+    token = auth.login(db, (data.get("login") or "").strip(), data.get("password") or "", ip)
     if not token:
         return render(request, "login.html", error="Неверный логин или пароль.")
     resp = web.HTTPSeeOther("/")

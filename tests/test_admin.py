@@ -174,3 +174,16 @@ def test_video_upload_converts_and_bot_sees_it():
             r = await c.post("/videos/delete", data={"csrf": csrf, "name": "../../etc/passwd"}, allow_redirects=False)
             assert "err=" in r.headers["Location"]
     run(go())
+
+
+def test_rename_keeps_password_and_login_ignores_case():
+    async def go():
+        cfg, db = setup()
+        auth.rename_user(db, "slava", "V")
+        assert auth.users(db) == ["V"]
+        async with TestClient(TestServer(make_app(cfg, db))) as c:
+            r = await c.post("/login", data={"login": "v", "password": "secret-pass"}, allow_redirects=False)
+            assert r.status == 303
+            page = await (await c.get("/")).text()
+            assert '<span class="who">V</span>' in page
+    run(go())
