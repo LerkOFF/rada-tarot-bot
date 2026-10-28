@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field with context %}
+{% block title %}Профиль бота{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Профиль бота</h1>
+  <p class="lead">Аватар меняется сразу. Описание и меню команд сначала сохрани в полях ниже, потом нажми «Отправить в Telegram». Бот и сам отправляет их при каждом запуске.</p>
+</div>
+<section class="panel avatar-panel">
+  <div class="avatar">
+    {% if avatar %}<img src="/files/avatar?v={{ avatar|int }}" alt="аватар">{% else %}<span>нет<br>загруженного</span>{% endif %}
+  </div>
+  <form class="upload" method="post" action="/profile/avatar" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h2>Аватар бота</h2>
+    <p class="hint">Квадратная картинка JPG или PNG от 512 точек. Не квадратную обрежу по центру.</p>
+    <label class="file"><input type="file" name="file" accept="image/jpeg,image/png,image/webp" required data-autosubmit><span>Загрузить и поставить</span></label>
+  </form>
+</section>
+<script>window.SAMPLES = {{ samples|safe }};</script>
+{% for f in fields %}{{ field(f, back, csrf) }}{% endfor %}
+<form class="apply" method="post" action="/profile/apply">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="btn primary" type="submit">Отправить описание и команды в Telegram</button>
+</form>
+{% endblock %}

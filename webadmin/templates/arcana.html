@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field with context %}
+{% block title %}{{ card.name }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/arcana">Арканы</a> / {{ roman[n] }} · {{ card.name }}
+  <span class="pager"><a href="/arcana/{{ prev }}">← {{ majors[prev] }}</a><a href="/arcana/{{ next }}">{{ majors[next] }} →</a></span>
+</div>
+<div class="card-layout">
+  <aside class="card-side">
+    <img class="card-big" src="/files/card/{{ card.slug }}?w=600" alt="{{ card.name }}">
+    <p class="hint">Картинку меняют в <a href="/deck/{{ card.slug }}">колоде</a>.</p>
+  </aside>
+  <div class="card-main">
+    <h1>{{ card.name }}</h1>
+    <p class="lead">Эпиграф, сила, слепая зона, решения и цитата печатаются на картинке-карточке аркана, поэтому держи их короткими.</p>
+    {% for t, f in fields %}{{ field(f, back, csrf, t) }}{% endfor %}
+  </div>
+</div>
+{% endblock %}

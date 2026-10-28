@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 
 os.environ["DB_PATH"] = tempfile.mktemp(suffix=".sqlite3")
+os.environ["MEDIA_DIR"] = tempfile.mkdtemp()
 os.environ["BOT_TOKEN"] = "1:test"
 os.environ["LLM_PROVIDER"] = "stub"
 
@@ -15,6 +16,7 @@ from aiogram.methods import GetMe, SendInvoice, SendMessage, SendPhoto, SendVide
 from aiogram.types import Chat, Message, VideoNote, Update, User, CallbackQuery, PreCheckoutQuery, SuccessfulPayment
 
 import bot as botmod
+from rada import content
 
 
 class FakeSession(BaseSession):
@@ -45,6 +47,7 @@ def make():
     bot = Bot("1:test", session=sess)
     botmod.BOT_USERNAME["v"] = "zarya_taro_bot"
     botmod.router._parent_router = None   # роутер один на модуль, в тестах подключаем заново
+    content._store["v"] = botmod.store     # другие тесты могли поставить свою базу правок
     dp = Dispatcher()
     dp.include_router(botmod.router)
     return bot, dp, sess
@@ -83,7 +86,7 @@ def test_full_flow():
         await send(dp, bot, "/start")
         assert "Я - Заря" in texts_of(sess)
         await send(dp, bot, "Аня")                                 # имя
-        await send(dp, bot, botmod.BTN_DAY)                        # карта дня
+        await send(dp, bot, botmod.T("BTN_DAY"))                        # карта дня
         assert any(isinstance(c, SendPhoto) for c in sess.calls)
         # да/нет
         await press(dp, bot, "t:yesno")
@@ -108,7 +111,7 @@ def test_full_flow():
         await send(dp, bot, "А что с работой?")
         assert botmod.db.spread(int(payload.split(":")[1]))["followups_left"] == 2
         # аркан
-        await send(dp, bot, botmod.BTN_ARC)
+        await send(dp, bot, botmod.T("BTN_ARC"))
         await send(dp, bot, "01.01.1990")
         assert "Мир" in texts_of(sess)
         # год и совместимость
@@ -120,7 +123,7 @@ def test_full_flow():
         assert "Отшельник" in texts_of(sess)
         # прочее
         await send(dp, bot, "/terms")
-        await send(dp, bot, botmod.BTN_MORE)
+        await send(dp, bot, botmod.T("BTN_MORE"))
         await press(dp, bot, "more:history")
         await send(dp, bot, "/forget")
         assert botmod.db.user(UID)["name"] is None

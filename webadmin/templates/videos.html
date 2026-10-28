@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Видео-кружки{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Видео-кружки</h1>
+  <p class="lead">Перед ответом бот присылает кружок героини. Если в сценарии несколько роликов, берёт случайный. Нет ни одного - просто показывает «печатает…».</p>
+  {% if ffmpeg %}
+  <p class="hint">Можно грузить любое видео (MP4, MOV, WEBM): сервер сам вырежет квадрат по центру, сожмёт до 640x640 и обрежет до 60 секунд.</p>
+  {% else %}
+  <p class="hint warn">На сервере нет ffmpeg: принимаются только готовые квадратные MP4 до 60 секунд.</p>
+  {% endif %}
+</div>
+{% for s in rows %}
+<section class="panel" id="{{ s.key }}">
+  <div class="panel-head"><h2>{{ s.title }}</h2><span class="muted">{{ s.files|length }} шт.</span></div>
+  <div class="notes">
+    {% for f in s.files %}
+    <figure class="note">
+      <video src="/files/video/{{ f.name }}#t=0.5" preload="metadata" controls playsinline></video>
+      <figcaption>
+        <span class="muted">{{ f.at|msk }} · {{ f.size|kb }}</span>
+        <form method="post" action="/videos/delete">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="name" value="{{ f.name }}">
+          <button class="linkbtn danger" type="submit" data-confirm="Убрать этот кружок?">убрать</button>
+        </form>
+      </figcaption>
+    </figure>
+    {% endfor %}
+    <form class="note add" method="post" action="/videos/upload" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="scenario" value="{{ s.key }}">
+      <label class="file round"><input type="file" name="file" accept="video/*" required data-autosubmit><span>+ добавить<br>кружок</span></label>
+    </form>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

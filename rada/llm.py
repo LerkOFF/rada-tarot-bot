@@ -23,7 +23,11 @@ PERSONA = (
 class LLM:
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.system = PERSONA.format(name=cfg.persona)
+
+    @property
+    def system(self) -> str:
+        # имя героини меняется в админке, поэтому собираем каждый раз
+        return PERSONA.format(name=self.cfg.persona)
 
     async def ask(self, prompt: str, max_words: int = 120) -> str:
         provider = self.cfg.llm_provider

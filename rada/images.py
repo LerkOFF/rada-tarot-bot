@@ -39,9 +39,11 @@ def _placeholder(card: Card) -> Image.Image:
     return img
 
 
-def card_image(card: Card, cards_dir: str) -> Image.Image:
-    path = Path(cards_dir) / f"{card.slug}.jpg"
-    if path.exists():
+def card_image(card: Card, cards_dir) -> Image.Image:
+    """cards_dir - каталог или список каталогов: первый найденный файл главнее."""
+    dirs = [cards_dir] if isinstance(cards_dir, (str, Path)) else cards_dir
+    path = next((p for p in (Path(d) / f"{card.slug}.jpg" for d in dirs) if p.exists()), None)
+    if path:
         img = ImageOps.fit(Image.open(path).convert("RGB"), (CARD_W, CARD_H))
     else:
         img = _placeholder(card)

@@ -4,6 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from . import content
 from .config import ROOT
 from .deck import MAJORS, Card
 
@@ -57,9 +58,40 @@ def reload() -> None:
         f.cache_clear()
 
 
+ARCANA_FIELDS = ("epigraph", "power", "blind", "decision", "quote", "text")
+
+
 def _entry(card: Card):
+    """Толкование карты с правками из админки (ключи lib.card.<slug>.<up|rev>.<поле>)."""
     e = _cards().get(card.slug)
-    return e["rev" if card.reversed else "up"] if e else None
+    if not e:
+        return None
+    pos = "rev" if card.reversed else "up"
+    return {f: content.lib(f"lib.card.{card.slug}.{pos}.{f}", v) for f, v in e[pos].items()}
+
+
+def defaults_card(slug: str) -> dict:
+    return _cards().get(slug) or {}
+
+
+def defaults_arcana(n: int) -> dict:
+    return _arcana().get(str(n)) or {}
+
+
+def defaults_year(n: int) -> str:
+    return _year().get(str(n)) or ""
+
+
+def defaults_pair(n: int) -> str:
+    return _pair().get(str(n)) or ""
+
+
+def intros() -> list:
+    return [x for x in content.lib("lib.intros", "\n".join(INTROS)).splitlines() if x.strip()] or INTROS
+
+
+def outros() -> list:
+    return [x for x in content.lib("lib.outros", "\n".join(OUTROS)).splitlines() if x.strip()] or OUTROS
 
 
 def has_cards() -> bool:
@@ -82,15 +114,20 @@ def core(card: Card):
 
 
 def arcana(n: int):
-    return _arcana().get(str(n))
+    e = _arcana().get(str(n))
+    if not e:
+        return None
+    return {f: content.lib(f"lib.arcana.{n}.{f}", v) for f, v in e.items()}
 
 
 def year(n: int):
-    return _year().get(str(n))
+    e = _year().get(str(n))
+    return content.lib(f"lib.year.{n}", e) if e else None
 
 
 def pair(n: int):
-    return _pair().get(str(n))
+    e = _pair().get(str(n))
+    return content.lib(f"lib.pair.{n}", e) if e else None
 
 
 def _pick(items: list, cards: list):
@@ -103,12 +140,12 @@ def spread_text(question: str, cards: list):
     if not has_cards():
         return None
     labels = POSITIONS.get(len(cards), [f"Карта {i}" for i in range(1, len(cards) + 1)])
-    parts = [_pick(INTROS, cards), ""]
+    parts = [_pick(intros(), cards), ""]
     for label, card in zip(labels, cards):
         parts.append(f"{label}: {card.title}")
         parts.append(core(card))
         parts.append("")
-    parts.append(_pick(OUTROS, cards))
+    parts.append(_pick(outros(), cards))
     return "\n".join(parts)
 
 

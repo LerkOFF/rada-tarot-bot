@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field with context %}
+{% block title %}{{ card.name }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/deck">Колода</a> / {{ card.name }}
+  <span class="pager"><a href="/deck/{{ prev.slug }}">← {{ prev.name }}</a><a href="/deck/{{ next.slug }}">{{ next.name }} →</a></span>
+</div>
+<div class="card-layout">
+  <aside class="card-side">
+    <img class="card-big" src="/files/card/{{ card.slug }}?w=600&v={{ v }}" alt="{{ card.name }}">
+    <form class="upload" method="post" action="/deck/image" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="slug" value="{{ card.slug }}">
+      <label class="file"><input type="file" name="file" accept="image/jpeg,image/png,image/webp" required data-autosubmit><span>Заменить картинку</span></label>
+      <p class="hint">JPG, PNG или WEBP, вертикальная, примерно 300 на 520. Перевёрнутую бот сделает сам.</p>
+    </form>
+    {% if own_image %}
+    <form method="post" action="/deck/image/reset">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="slug" value="{{ card.slug }}">
+      <button class="btn ghost wide" type="submit" data-confirm="Вернуть исходную картинку?">Вернуть исходную картинку</button>
+    </form>
+    {% elif not has_image %}
+    <p class="hint">Картинки нет, бот рисует заглушку с названием.</p>
+    {% endif %}
+  </aside>
+  <div class="card-main">
+    <h1>{{ card.name }}</h1>
+    {% for title, fields in positions %}
+    <section class="pos">
+      <h2>{{ title }}</h2>
+      {% for t, f in fields %}{{ field(f, back, csrf, t) }}{% endfor %}
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

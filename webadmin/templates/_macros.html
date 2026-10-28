@@ -1,0 +1,70 @@
+{% macro field(f, back, csrf, heading=None) %}
+<form class="field{{ ' changed' if f.changed }}" id="{{ f.key }}" method="post" action="/save" data-field>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="key" value="{{ f.key }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <div class="field-head">
+    <div>
+      <div class="field-title">{{ heading or f.title }}</div>
+      <code class="key">{{ f.key }}</code>
+    </div>
+    {% if f.changed %}
+    <span class="badge">изменено · {{ f.by }} · {{ f.at|msk }}</span>
+    {% else %}
+    <span class="badge muted">исходный текст</span>
+    {% endif %}
+  </div>
+  {% if err and query.get('ek') == f.key %}<div class="field-err" role="alert">Не сохранено: {{ err }}</div>{% endif %}
+  <div class="field-body{{ ' with-preview' if f.preview }}">
+    <div class="editor">
+      {% if f.short %}
+      <input class="js-text" name="value" value="{{ f.value }}" autocomplete="off" spellcheck="true">
+      {% else %}
+      <textarea class="js-text" name="value" rows="3" spellcheck="true">{{ f.value }}</textarea>
+      {% endif %}
+      <div class="meta">
+        <span class="count" data-limit="{{ f.limit or '' }}"></span>
+        <span class="dirty">не сохранено</span>
+      </div>
+      {% if f.chips %}
+      <div class="chip-list">
+        {% for name, desc in f.chips %}
+        <button type="button" class="chip" data-insert="{{ '{' ~ name ~ '}' }}" title="Вставить в текст">{{ '{' ~ name ~ '}' }}<small>{{ desc }}</small></button>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if f.more %}
+      <details class="chips">
+        <summary>Ещё подстановки: имя героини, цены, час</summary>
+        <div class="chip-list">
+          {% for name, desc in f.more %}
+          <button type="button" class="chip" data-insert="{{ '{' ~ name ~ '}' }}" title="Вставить в текст">{{ '{' ~ name ~ '}' }}<small>{{ desc }}</small></button>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    {% if f.preview %}
+    <div class="preview">
+      <div class="preview-label">Как увидят в боте</div>
+      {% if f.short %}
+      <div class="tg-btn" data-preview></div>
+      {% else %}
+      <div class="bubble" data-preview></div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="actions">
+    <button class="btn primary" type="submit">Сохранить</button>
+    {% if f.changed %}
+    <button class="btn ghost" type="submit" formaction="/reset" data-confirm="Вернуть исходный текст?">Вернуть исходный</button>
+    {% endif %}
+    <details class="orig">
+      <summary>Исходный текст</summary>
+      <pre>{{ f.default }}</pre>
+    </details>
+    <a class="hist" href="/history?key={{ f.key|urlencode }}">история</a>
+  </div>
+</form>
+{% endmacro %}

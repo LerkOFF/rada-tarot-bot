@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field with context %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ heading }}</h1>
+  <p class="lead">Слова в фигурных скобках бот подставит сам: <code>{user}</code> станет именем человека, <code>{p3}</code> ценой расклада. Нужна сама скобка - удвой её: <code>{{ '{{' }}</code>.</p>
+</div>
+<script>window.SAMPLES = {{ samples|safe }};</script>
+{% for f in fields %}
+{{ field(f, back, csrf) }}
+{% else %}
+<p class="empty">Ничего не нашлось.</p>
+{% endfor %}
+{% endblock %}

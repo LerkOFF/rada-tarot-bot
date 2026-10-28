@@ -22,6 +22,20 @@ CREATE TABLE IF NOT EXISTS gifts (
   code TEXT PRIMARY KEY, from_user INTEGER, redeemed_by INTEGER, created REAL
 );
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS content (
+  key TEXT PRIMARY KEY, value TEXT NOT NULL, updated REAL, updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, login TEXT, action TEXT, key TEXT,
+  old TEXT, new TEXT
+);
+CREATE TABLE IF NOT EXISTS admin_users (
+  login TEXT PRIMARY KEY, pw_hash TEXT NOT NULL, created REAL
+);
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token TEXT PRIMARY KEY, login TEXT, csrf TEXT, created REAL, expires REAL
+);
+CREATE TABLE IF NOT EXISTS login_fails (ip TEXT, ts REAL);
 """
 
 
@@ -29,9 +43,63 @@ class DB:
     def __init__(self, path: str):
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.con = sqlite3.connect(path)
+        # базу читают двое: бот и админка, поэтому WAL и ожидание блокировки
+        self.con = sqlite3.connect(path, timeout=10)
         self.con.row_factory = sqlite3.Row
+        if path != ":memory:":
+            self.con.execute("PRAGMA journal_mode=WAL")
+        self.con.execute("PRAGMA busy_timeout=10000")
         self.con.executescript(SCHEMA)
+
+    # правки из админки поверх текстов по умолчанию
+    def content_all(self) -> dict:
+        return {r["key"]: r["value"] for r in self.con.execute("SELECT key, value FROM content")}
+
+    def content_row(self, key: str):
+        return self.con.execute("SELECT * FROM content WHERE key=?", (key,)).fetchone()
+
+    def content_set(self, key: str, value: str, login: str, action: str = "edit"):
+        row = self.content_row(key)
+        old = row["value"] if row else None
+        if old == value:
+            return
+        self.con.execute(
+            "INSERT INTO content(key, value, updated, updated_by) VALUES(?,?,?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated, "
+            "updated_by=excluded.updated_by",
+            (key, value, time.time(), login),
+        )
+        self.audit(login, action, key, old, value)
+
+    def content_reset(self, key: str, login: str):
+        row = self.content_row(key)
+        if not row:
+            return
+        self.con.execute("DELETE FROM content WHERE key=?", (key,))
+        self.audit(login, "reset", key, row["value"], None)
+
+    def audit(self, login: str, action: str, key: str, old=None, new=None):
+        self.con.execute("INSERT INTO audit(ts, login, action, key, old, new) VALUES(?,?,?,?,?,?)",
+                         (time.time(), login, action, key, old, new))
+        self.con.commit()
+
+    def audit_list(self, limit: int = 200, key: str = None):
+        if key:
+            return self.con.execute("SELECT * FROM audit WHERE key=? ORDER BY id DESC LIMIT ?",
+                                    (key, limit)).fetchall()
+        return self.con.execute("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+
+    def audit_row(self, aid: int):
+        return self.con.execute("SELECT * FROM audit WHERE id=?", (aid,)).fetchone()
+
+    def stats(self) -> dict:
+        one = lambda sql: self.con.execute(sql).fetchone()[0]  # noqa: E731
+        return {
+            "users": one("SELECT COUNT(*) FROM users"),
+            "users_week": one(f"SELECT COUNT(*) FROM users WHERE created > {time.time() - 7 * 86400}"),
+            "paid": one("SELECT COUNT(*) FROM spreads WHERE paid=1"),
+            "stars": one("SELECT COALESCE(SUM(paid_total), 0) FROM users"),
+        }
 
     # мелкий кэш (file_id видео-кружков и т.п.)
     def kv_get(self, key: str):

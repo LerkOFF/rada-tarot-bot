@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Обзор{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Обзор</h1>
+  <p class="lead">Здесь меняется всё, что видит человек в боте: тексты, надписи на кнопках, толкования карт, картинки, кружки, аватар и цены. Правки доходят до бота за несколько секунд, перезапуск не нужен.</p>
+</div>
+<div class="tiles">
+  <div class="tile"><div class="tile-num">{{ stats.users }}</div><div class="tile-label">людей в боте</div></div>
+  <div class="tile"><div class="tile-num">{{ stats.users_week }}</div><div class="tile-label">новых за неделю</div></div>
+  <div class="tile"><div class="tile-num">{{ stats.paid }}</div><div class="tile-label">оплаченных разборов</div></div>
+  <div class="tile"><div class="tile-num">{{ stats.stars }} ⭐</div><div class="tile-label">звёзд получено</div></div>
+</div>
+<div class="cards-grid">
+  <a class="go" href="/texts?g=start"><b>Тексты и кнопки</b><span>Приветствие, меню, ответы, надписи на кнопках, счета.</span></a>
+  <a class="go" href="/deck"><b>Колода</b><span>Картинка и три толкования для каждой из 78 карт.</span></a>
+  <a class="go" href="/arcana"><b>Арканы</b><span>Аркан судьбы, карта года и аркан пары.</span></a>
+  <a class="go" href="/videos"><b>Видео-кружки</b><span>Ролики героини под каждый сценарий.</span></a>
+  <a class="go" href="/profile"><b>Профиль бота</b><span>Аватар, описание и меню команд в Telegram.</span></a>
+  <a class="go" href="/settings"><b>Цены и настройки</b><span>Звёзды за расклады, имя героини, утренний час.</span></a>
+</div>
+<section class="panel">
+  <div class="panel-head"><h2>Последние правки</h2><span class="muted">всего изменённых полей: {{ changed }}</span><a href="/history">весь журнал →</a></div>
+  {% if recent %}
+  <ul class="feed">
+    {% for r in recent %}
+    <li><span class="when">{{ r.ts|msk }}</span><b>{{ r.login }}</b> {{ actions.get(r.action, r.action) }} {% if r.key %}<span class="what">{{ label(r.key) }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="empty">Пока ничего не меняли.</p>{% endif %}
+</section>
+{% endblock %}

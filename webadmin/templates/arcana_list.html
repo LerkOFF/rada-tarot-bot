@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Арканы{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Арканы</h1>
+  <p class="lead">22 старших аркана. Для каждого: аркан судьбы (картинка-карточка и толкование), карта года и аркан пары для совместимости.</p>
+</div>
+<div class="deck">
+  {% for c in items %}
+  <a class="deck-card" href="/arcana/{{ loop.index0 }}">
+    <img src="/files/card/{{ c.slug }}" alt="" loading="lazy" width="180" height="312">
+    <span class="deck-name">{{ roman[loop.index0] }} · {{ c.name }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field with context %}
+{% block title %}Колода{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Колода</h1>
+  <p class="lead">78 карт. У каждой картинка и три текста в двух положениях: карта дня, пояснение к ответу да/нет и суть для платных раскладов. Нажми на карту, чтобы править.</p>
+  <p class="legend"><span class="mark text">✎</span> текст изменён <span class="mark img">▣</span> своя картинка</p>
+</div>
+{% for title, cards in suits %}
+<section class="deck-group">
+  <h2>{{ title }}</h2>
+  <div class="deck">
+    {% for c in cards %}
+    <a class="deck-card" href="/deck/{{ c.slug }}">
+      <img src="/files/card/{{ c.slug }}" alt="" loading="lazy" width="180" height="312">
+      <span class="deck-name">{{ c.name }}</span>
+      <span class="marks">{% if c.slug in changed %}<span class="mark text" title="текст изменён">✎</span>{% endif %}{% if c.slug in overridden %}<span class="mark img" title="своя картинка">▣</span>{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+<section class="deck-group">
+  <h2>Фразы раскладов</h2>
+  <p class="lead">Когда нейросеть не подключена, расклад собирается из толкований карт. В начало и в конец бот ставит одну из этих фраз. Одна строка - одна фраза.</p>
+  <script>window.SAMPLES = {};</script>
+  {{ field(phrases[0], back, csrf, 'Вступления к раскладу') }}
+  {{ field(phrases[1], back, csrf, 'Напутствия в конце расклада') }}
+</section>
+{% endblock %}

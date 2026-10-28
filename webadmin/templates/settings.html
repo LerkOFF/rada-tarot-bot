@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Цены и настройки{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Цены и настройки</h1>
+  <p class="lead">Цены в звёздах Telegram. Тексты с подстановками вроде <code>{p3}</code> покажут новую цену сами. Исходные значения заданы в настройках сервера.</p>
+</div>
+<div class="settings">
+  {% for s in rows %}
+  <form class="setting{{ ' changed' if s.changed }}" id="{{ s.key }}" method="post" action="/save">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="key" value="{{ s.key }}">
+    <input type="hidden" name="back" value="{{ back }}">
+    {% if err and query.get('ek') == s.key %}<div class="field-err" role="alert">{{ err }}</div>{% endif %}
+    <label>
+      <span class="setting-title">{{ s.title }}</span>
+      {% if s.kind == 'int' %}
+      <input name="value" type="number" min="{{ s.lo }}" max="{{ s.hi }}" value="{{ s.value }}" required>
+      {% else %}
+      <input name="value" maxlength="{{ s.hi }}" value="{{ s.value }}" required>
+      {% endif %}
+    </label>
+    <div class="setting-foot">
+      <span class="muted">исходно: {{ s.base }}{% if s.changed %} · изменил {{ s.by }}, {{ s.at|msk }}{% endif %}</span>
+      <span class="setting-actions">
+        <button class="btn primary sm" type="submit">Сохранить</button>
+        {% if s.changed %}<button class="btn ghost sm" type="submit" formaction="/reset" data-confirm="Вернуть исходное значение?">Исходное</button>{% endif %}
+      </span>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

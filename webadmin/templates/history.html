@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Журнал правок{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Журнал правок</h1>
+  {% if key %}
+  <p class="lead">Только «{{ label(key) }}». <a href="/history">Показать всё</a></p>
+  {% else %}
+  <p class="lead">Кто, когда и что поменял. Текст можно вернуть к любому прежнему варианту кнопкой «откатить».</p>
+  {% endif %}
+</div>
+{% if rows %}
+<div class="log">
+  {% for r in rows %}
+  <div class="log-row">
+    <div class="log-head">
+      <span class="when">{{ r.ts|msk }}</span>
+      <b>{{ r.login }}</b>
+      <span>{{ actions.get(r.action, r.action) }}</span>
+      {% if r.key %}<a class="what" href="/history?key={{ r.key|urlencode }}">{{ label(r.key) }}</a>{% endif %}
+      {% if r.action in ('edit', 'reset', 'revert') and kind_of(r.key) %}
+      <form method="post" action="/history/revert" class="log-revert">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="id" value="{{ r.id }}">
+        <button class="linkbtn" type="submit" data-confirm="Вернуть значение, которое было до этой правки?">откатить</button>
+      </form>
+      {% endif %}
+    </div>
+    {% if r.action in ('edit', 'reset', 'revert') %}
+    <div class="diff">
+      <div class="was"><span>было</span><pre>{{ r.old if r.old is not none else (default_of(r.key) or '(исходный текст)') }}</pre></div>
+      <div class="now"><span>стало</span><pre>{{ r.new if r.new is not none else (default_of(r.key) or '(исходный текст)') }}</pre></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p class="empty">Пока пусто.</p>{% endif %}
+{% endblock %}

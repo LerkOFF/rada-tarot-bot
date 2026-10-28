@@ -53,6 +53,7 @@ class Config:
     telegraph_token: str = field(default_factory=lambda: os.environ.get("TELEGRAPH_TOKEN", ""))
     db_path: str = field(default_factory=lambda: os.environ.get("DB_PATH", str(ROOT / "state" / "rada.sqlite3")))
     cards_dir: str = field(default_factory=lambda: os.environ.get("CARDS_DIR", str(ROOT / "assets" / "cards")))
+    media_dir: str = field(default_factory=lambda: os.environ.get("MEDIA_DIR") or str(ROOT / "state" / "media"))
     video_note_id: str = field(default_factory=lambda: os.environ.get("VIDEO_NOTE_FILE_ID", ""))
     tz_offset_hours: int = field(default_factory=lambda: _int("TZ_OFFSET_HOURS", 3))
     morning_hour: int = field(default_factory=lambda: _int("MORNING_HOUR", 9))
