@@ -12,7 +12,7 @@ os.environ["LLM_PROVIDER"] = "stub"
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import GetMe, SendInvoice, SendMessage, SendPhoto, SendVideoNote
+from aiogram.methods import GetMe, CreateInvoiceLink, SendInvoice, SendMessage, SendPhoto, SendVideoNote
 from aiogram.types import Chat, Message, VideoNote, Update, User, CallbackQuery, PreCheckoutQuery, SuccessfulPayment
 
 import bot as botmod
@@ -37,6 +37,8 @@ class FakeSession(BaseSession):
         if isinstance(method, SendVideoNote):
             return Message(message_id=len(self.calls), date=datetime.now(), chat=Chat(id=method.chat_id, type="private"),
                            video_note=VideoNote(file_id="FID123", file_unique_id="u", length=640, duration=10))
+        if isinstance(method, CreateInvoiceLink):
+            return "https://t.me/$testlink"
         if isinstance(method, (SendMessage, SendPhoto, SendInvoice)):
             return Message(message_id=len(self.calls), date=datetime.now(), chat=Chat(id=method.chat_id, type="private"))
         return True
@@ -95,7 +97,7 @@ def test_full_flow():
         sid = botmod.db.con.execute("SELECT id FROM spreads WHERE kind='yesno'").fetchone()[0]
         n = len(sess.calls)
         await press(dp, bot, f"yn_more:{sid}")                     # платный расклад: коллаж + счёт
-        invoices = [c for c in sess.calls[n:] if isinstance(c, SendInvoice)]
+        invoices = [c for c in sess.calls[n:] if isinstance(c, CreateInvoiceLink)]
         assert invoices and invoices[0].currency == "XTR" and invoices[0].prices[0].amount == 50
         payload = invoices[0].payload
         # оплата

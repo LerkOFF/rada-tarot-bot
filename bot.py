@@ -256,10 +256,23 @@ async def offer_spread(bot: Bot, chat_id: int, uid: int, question: str, n_cards:
 
 
 async def send_invoice(bot: Bot, chat_id: int, payload: str, title: str, description: str, price: int):
-    await bot.send_invoice(
-        chat_id, title=title, description=description or title, payload=payload,
-        currency="XTR", prices=[LabeledPrice(label=title, amount=price)], provider_token="",
-    )
+    """Оплата Stars ссылкой-кнопкой: веб-версия Telegram не рисует сообщение-счёт, а ссылка открывает оплату везде.
+    Не вышло создать ссылку - шлём обычный счёт."""
+    prices = [LabeledPrice(label=title, amount=price)]
+    try:
+        link = await bot.create_invoice_link(
+            title=title, description=description or title, payload=payload,
+            currency="XTR", prices=prices, provider_token="",
+        )
+    except Exception:
+        log.warning("invoice link failed, sending invoice message", exc_info=True)
+        await bot.send_invoice(
+            chat_id, title=title, description=description or title, payload=payload,
+            currency="XTR", prices=prices, provider_token="",
+        )
+        return
+    text = f"{title} - {price} ⭐" + (f"\n{description}" if description and description != title else "")
+    await bot.send_message(chat_id, text, reply_markup=ikb([[btn(T("BTN_PAY", price=price), url=link)]]))
 
 
 @router.message(is_btn("BTN_ASK"), PRIVATE)
