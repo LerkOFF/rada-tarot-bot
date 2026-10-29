@@ -149,3 +149,34 @@ def test_greeting_video_note_uploaded_once_then_cached():
         assert not isinstance(notes[0].video_note, str)   # первый раз загрузка файла
         assert notes[1].video_note == "FID123"            # дальше file_id из кэша
     asyncio.run(run())
+
+
+def test_buttons_work_when_content_cache_expires():
+    """Фильтры нижних кнопок ходят в базу: не должны делать это из пула потоков (SQLite)."""
+    async def run():
+        bot, dp, sess = make()
+        old = botmod.store.ttl
+        botmod.store.ttl = 0   # каждый запрос перечитывает правки из базы
+        try:
+            await send(dp, bot, "/start")
+            await send(dp, bot, "Аня")
+            sess.calls.clear()
+            await send(dp, bot, botmod.T("BTN_DAY"))
+            assert any(isinstance(c, SendPhoto) for c in sess.calls)
+        finally:
+            botmod.store.ttl = old
+
+    asyncio.run(run())
+
+
+def test_repeated_start_sends_welcome_once():
+    async def run():
+        bot, dp, sess = make()
+        await send(dp, bot, "/start")
+        await send(dp, bot, "Аня")
+        sess.calls.clear()
+        await send(dp, bot, "/start")
+        texts = [c.text for c in sess.calls if isinstance(c, SendMessage)]
+        assert texts.count(botmod.T("ASK_TOPIC")) == 1
+
+    asyncio.run(run())

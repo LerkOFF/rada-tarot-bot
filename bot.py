@@ -43,7 +43,11 @@ def main_kb():
 
 def is_btn(key: str):
     """Фильтр нижней кнопки: надпись меняется в админке, старую тоже узнаём."""
-    return F.text.func(lambda text: text in store.labels(key))
+    async def check(m: Message) -> bool:
+        return bool(m.text) and m.text in store.labels(key)
+    # асинхронный фильтр идёт в потоке событий; обычный aiogram гонит в пул потоков,
+    # а соединение SQLite принадлежит только основному потоку
+    return check
 
 
 def cards_dirs():
@@ -155,7 +159,7 @@ async def on_start(m: Message, command: CommandObject, bot: Bot):
     if not row["name"]:
         await intro_video(bot, m.chat.id)
     if row["name"]:
-        await m.answer(T("ASK_TOPIC"), reply_markup=main_kb())
+        await m.answer(T("WELCOME_BACK"), reply_markup=main_kb())
         await m.answer(T("ASK_TOPIC"), reply_markup=topics_kb())
         return
     db.set_state(uid, "name")
@@ -676,7 +680,11 @@ async def on_text(m: Message, bot: Bot):
         await offer_spread(bot, m.chat.id, uid, text[:300])
 
 
-@router.message(F.text.func(lambda t: any(t in store.labels(k) for k in content.REPLY_BUTTONS)), ~PRIVATE)
+async def is_any_btn(m: Message) -> bool:
+    return bool(m.text) and any(m.text in store.labels(k) for k in content.REPLY_BUTTONS)
+
+
+@router.message(is_any_btn, ~PRIVATE)
 async def ignore_group_buttons(m: Message):
     return
 
